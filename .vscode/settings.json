@@ -1,0 +1,18 @@
+{
+  // Base Settings
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.rulers": [100],
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  // Python Settings
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4
+  },
+  "autoDocstring.docstringFormat": "google-notypes",
+  "black-formatter.args": ["--line-length=100"]
+}

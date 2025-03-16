@@ -1,0 +1,5 @@
+[project]
+name = "online-chat-messenger"
+version = "0.1.0"
+readme = "READNE.md"
+requires-python = ">=3.8"
