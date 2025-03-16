@@ -33,6 +33,15 @@ running = True
 udp_socket = None
 
 
+def send_udp_port(tcp_socket, server_host):
+    global udp_socket
+    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind((server_host, 0))
+    client_udp_port = udp_socket.getsockname()[1]
+    client_udp_port_bytes = client_udp_port.to_bytes(2, "big")
+    tcp_socket.send(client_udp_port_bytes)
+
+
 def create_room(server_host, tcp_port, room_name, username):
     """新しいチャットルームを作成する"""
     global client_token, client_room, client_username
@@ -113,6 +122,9 @@ def create_room(server_host, tcp_port, room_name, username):
         client_token = token
         client_room = room_name
         client_username = username
+
+        # udp port を送信
+        send_udp_port(tcp_socket, server_host)
 
         print(f"チャットルーム '{room_name}' を作成しました！")
         print("あなたはホストとして参加しています。退出するには '/exit' と入力してください。")
@@ -210,6 +222,9 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         client_room = room_name
         client_username = username
 
+        # udp port を送信
+        send_udp_port(tcp_socket, server_host)
+
         print(f"チャットルーム '{room_name}' に参加しました！")
         print("退出するには '/exit' と入力してください。")
         return True
@@ -221,17 +236,14 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         tcp_socket.close()
 
 
-def receive_messages(server_host, udp_port):
+def receive_messages():
     """UDPでメッセージを受信する"""
-    global running, udp_socket
-
-    udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # udp_socket.bind(("0.0.0.0", udp_port))  # 任意のポートでリッスン
+    global running
 
     while running:
         try:
             # メッセージ受信
-            data, addr = udp_socket.recvfrom(4094)  # 最大4094バイト
+            data, _ = udp_socket.recvfrom(4094)  # 最大4094バイト
             if data:
                 message = data.decode("utf-8")
                 print(message)
@@ -249,7 +261,7 @@ def receive_messages(server_host, udp_port):
 
 def send_message(server_host, udp_port, message):
     """UDPでメッセージを送信する"""
-    global client_token, client_room, udp_socket
+    global client_token, client_room
 
     if not client_token or not client_room:
         print("チャットルームに接続されていません")
@@ -269,9 +281,6 @@ def send_message(server_host, udp_port, message):
         packet = bytes([room_name_size, token_size]) + room_name_bytes + token_bytes + message_bytes
 
         # 送信
-        if not udp_socket:
-            udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
         udp_socket.sendto(packet, (server_host, udp_port))
         return True
 
@@ -301,9 +310,7 @@ def start_client():
 
             if create_room(args.host, args.tcp_port, room_name, username):
                 # メッセージ受信スレッド起動
-                receive_thread = threading.Thread(
-                    target=receive_messages, args=(args.host, args.udp_port), daemon=True
-                )
+                receive_thread = threading.Thread(target=receive_messages, daemon=True)
                 receive_thread.start()
 
                 # メッセージ送信ループ
@@ -331,9 +338,7 @@ def start_client():
 
             if join_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
-                receive_thread = threading.Thread(
-                    target=receive_messages, args=(args.host, args.udp_port), daemon=True
-                )
+                receive_thread = threading.Thread(target=receive_messages, daemon=True)
                 receive_thread.start()
 
                 # メッセージ送信ループ
