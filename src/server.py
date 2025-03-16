@@ -324,6 +324,7 @@ def start_server():
     # UDP ソケット設定
     global udp_socket
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind((UDP_HOST, UDP_PORT))
 
     # UDP処理スレッド起動
     udp_thread = threading.Thread(target=handle_udp_message, args=(udp_socket,), daemon=True)
