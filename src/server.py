@@ -104,7 +104,7 @@ def handle_create_room(client_socket, room_name, username, client_address):
         chat_rooms[room_name] = {
             "host_token": host_token,
             "password": None,  # パスワードなし
-            "tokens": {host_token: client_address[0]},
+            "tokens": {host_token: client_address},
         }
 
     with tokens_lock:
@@ -116,7 +116,13 @@ def handle_create_room(client_socket, room_name, username, client_address):
     # トークン送信
     send_tcp_complete(client_socket, room_name, CREATE_ROOM, host_token)
 
-    print(f"ルーム作成: {room_name}, ホスト: {username}, アドレス: {client_address[0]}")
+    print(f"ルーム作成: {room_name}, ホスト: {username}, アドレス: {client_address}")
+
+    # UDP port 受信
+    udp_port_bytes = client_socket.recv(2)
+    udp_port = int.from_bytes(udp_port_bytes, "big")
+    with rooms_lock:
+        chat_rooms[room_name]["tokens"][host_token] = (client_address[0], udp_port)
 
 
 def handle_join_room(client_socket, room_name, username, password, client_address):
@@ -138,7 +144,7 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
         user_token = generate_token()
 
         # トークンをルームに追加
-        room["tokens"][user_token] = client_address[0]
+        room["tokens"][user_token] = client_address
 
     with tokens_lock:
         tokens[user_token] = {"room_name": room_name, "username": username}
@@ -153,7 +159,13 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
     system_message = f"{username} がチャットルームに参加しました"
     broadcast_message_to_room(room_name, system_message, None)
 
-    print(f"ルーム参加: {room_name}, ユーザー: {username}, アドレス: {client_address[0]}")
+    print(f"ルーム参加: {room_name}, ユーザー: {username}, アドレス: {client_address}")
+
+    # UDP port 受信
+    udp_port_bytes = client_socket.recv(2)
+    udp_port = int.from_bytes(udp_port_bytes, "big")
+    with rooms_lock:
+        chat_rooms[room_name]["tokens"][user_token] = (client_address[0], udp_port)
 
 
 def send_tcp_response(client_socket, room_name, operation, state, status_code):
@@ -225,7 +237,7 @@ def process_message(room_name, token, message, addr):
         if token not in room["tokens"]:
             return
 
-        if room["tokens"][token] != addr[0]:
+        if room["tokens"][token] != addr:
             return
 
     with tokens_lock:
@@ -264,8 +276,8 @@ def broadcast_message_to_room(room_name, message, exclude_token=None):
     message_bytes = message.encode("utf-8")
     for token, ip in recipients:
         try:
-            print(ip, UDP_PORT)
-            udp_socket.sendto(message_bytes, (ip, UDP_PORT))
+            print(ip)
+            udp_socket.sendto(message_bytes, ip)
         except Exception as e:
             print(f"メッセージ送信エラー: {e}")
 
