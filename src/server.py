@@ -26,8 +26,29 @@ ROOM_NOT_FOUND = 2
 INVALID_PASSWORD = 3
 
 # チャットルーム管理
-chat_rooms = {}  # {room_name: {host_token, password, tokens: {token: ip_address}}}
-tokens = {}  # {token: {room_name, username}}
+chat_rooms = {}
+"""
+{
+room_name: {
+    host_token: host_token,
+    password: password,
+    tokens: {token: ip_address}
+    }
+}
+"""
+tokens = {}
+"""
+{
+token: {
+    room_name:room_name,
+    username:username
+    }
+}
+"""
+client_timestamp = {}
+"""
+{token:timestamp}
+"""
 
 # ロック
 rooms_lock = threading.Lock()
