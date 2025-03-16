@@ -33,6 +33,9 @@ tokens = {}  # {token: {room_name, username}}
 rooms_lock = threading.Lock()
 tokens_lock = threading.Lock()
 
+# イベント
+udp_closed = threading.Event()
+
 
 def generate_token():
     """一意のトークンを生成"""
@@ -188,7 +191,7 @@ def send_tcp_complete(client_socket, room_name, operation, token):
 def handle_udp_message(udp_socket):
     _MIN_HEADER_SIZE = 2
     """UDP メッセージ処理"""
-    while True:
+    while not udp_closed.is_set():
         try:
             data, addr = udp_socket.recvfrom(4096)
             if not data:
@@ -349,6 +352,7 @@ def start_server():
         print("サーバー停止中...")
     finally:
         tcp_socket.close()
+        udp_closed.set()
         udp_socket.close()
         print("サーバー停止完了")
 
