@@ -25,6 +25,10 @@ ROOM_EXISTS = 1
 ROOM_NOT_FOUND = 2
 INVALID_PASSWORD = 3
 
+# クライアント管理
+CLEANUP_INTERVAL = 20
+INACTIVITY_TIMEOUT = 300
+
 # チャットルーム管理
 chat_rooms = {}
 """
@@ -343,7 +347,7 @@ def close_chat_room(room_name):
 def cleanup_inactive_clients():
     """非アクティブなクライアントのクリーンアップ"""
     while True:
-        time.sleep(60)  # 1分ごとにチェック
+        time.sleep(CLEANUP_INTERVAL)
 
         rooms_to_check = []
         with rooms_lock:
