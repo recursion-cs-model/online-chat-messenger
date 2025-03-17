@@ -295,6 +295,17 @@ def process_message(room_name, token, message, addr):
         close_chat_room(room_name)
 
 
+def send_message_bytes_to_client(ip, message_bytes):
+    """各自にメッセージを送信"""
+
+    # UDP送信
+    try:
+        print(ip)
+        udp_socket.sendto(message_bytes, ip)
+    except Exception as e:
+        print(f"メッセージ送信エラー: {e}")
+
+
 def broadcast_message_to_room(room_name, message, exclude_token=None):
     """ルーム内の全員にメッセージをブロードキャスト"""
     with rooms_lock:
@@ -313,11 +324,7 @@ def broadcast_message_to_room(room_name, message, exclude_token=None):
     # UDP送信
     message_bytes = message.encode("utf-8")
     for token, ip in recipients:
-        try:
-            print(ip)
-            udp_socket.sendto(message_bytes, ip)
-        except Exception as e:
-            print(f"メッセージ送信エラー: {e}")
+        send_message_bytes_to_client(ip, message_bytes)
 
 
 def close_chat_room(room_name):
@@ -372,6 +379,26 @@ def cleanup_inactive_clients():
             if current_time - client_timestamp.get(host_token, 0) > INACTIVITY_TIMEOUT:
                 close_chat_room(room_name)
                 continue
+
+            inactive_members = []
+            for token, ip in room["tokens"].items():
+                if token == host_token:
+                    continue
+                last_active = client_timestamp.get(token, 0)
+                if current_time - last_active > INACTIVITY_TIMEOUT:
+                    inactive_members.append((token, ip))
+
+            for token, ip in inactive_members:
+                send_message_bytes_to_client(
+                    ip,
+                    "しばらく発言しなかったので、チャットルームから退出させました".encode("utf-8"),
+                )
+                with rooms_lock:
+                    del room["tokens"][token]
+                with tokens_lock:
+                    del tokens[token]
+                with timestamp_lock:
+                    del client_timestamp[token]
 
 
 def start_server():
