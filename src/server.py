@@ -53,6 +53,7 @@ client_timestamp = {}
 # ロック
 rooms_lock = threading.Lock()
 tokens_lock = threading.Lock()
+timestamp_lock = threading.Lock()
 
 # イベント
 udp_closed = threading.Event()
@@ -266,6 +267,12 @@ def process_message(room_name, token, message, addr):
             return
 
         username = tokens[token]["username"]
+
+    with timestamp_lock:
+        if token not in client_timestamp:
+            return
+
+        client_timestamp[token] = time.time()
 
     print("broard cast")
 
