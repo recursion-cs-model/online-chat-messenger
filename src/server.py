@@ -132,6 +132,9 @@ def handle_create_room(client_socket, room_name, username, client_address):
     with tokens_lock:
         tokens[host_token] = {"room_name": room_name, "username": username}
 
+    with timestamp_lock:
+        client_timestamp[host_token] = time.time()
+
     # 成功応答
     send_tcp_response(client_socket, room_name, CREATE_ROOM, ACKNOWLEDGE, SUCCESS)
 
@@ -170,6 +173,9 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
 
     with tokens_lock:
         tokens[user_token] = {"room_name": room_name, "username": username}
+
+    with timestamp_lock:
+        client_timestamp[user_token] = time.time()
 
     # 成功応答
     send_tcp_response(client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, SUCCESS)
