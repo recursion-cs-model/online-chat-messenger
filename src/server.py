@@ -329,9 +329,10 @@ def close_chat_room(room_name):
         room = chat_rooms[room_name]
         tokens_to_remove = list(room["tokens"].keys())
 
-        # 閉じるメッセージを送信
-        broadcast_message_to_room(room_name, "チャットルームが閉じられました", None)
+    # 閉じるメッセージを送信
+    broadcast_message_to_room(room_name, "チャットルームが閉じられました", None)
 
+    with rooms_lock:
         # ルームを削除
         del chat_rooms[room_name]
 
@@ -341,6 +342,12 @@ def close_chat_room(room_name):
             if token in tokens:
                 del tokens[token]
 
+    # timestampを削除
+    with timestamp_lock:
+        for token in tokens_to_remove:
+            if token in client_timestamp:
+                del client_timestamp[token]
+
     print(f"ルーム閉鎖: {room_name}")
 
 
@@ -348,6 +355,7 @@ def cleanup_inactive_clients():
     """非アクティブなクライアントのクリーンアップ"""
     while True:
         time.sleep(CLEANUP_INTERVAL)
+        current_time = time.time()
 
         rooms_to_check = []
         with rooms_lock:
@@ -361,9 +369,9 @@ def cleanup_inactive_clients():
                 room = chat_rooms[room_name]
                 host_token = room["host_token"]
 
-                # ホストがいなくなった場合はルームを閉じる
-                if host_token not in room["tokens"]:
-                    close_chat_room(room_name)
+            if current_time - client_timestamp.get(host_token, 0) > INACTIVITY_TIMEOUT:
+                close_chat_room(room_name)
+                continue
 
 
 def start_server():
