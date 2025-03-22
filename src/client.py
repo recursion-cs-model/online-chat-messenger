@@ -253,6 +253,11 @@ def receive_messages():
                     print("チャットルームが閉じられました。プログラムを終了します。")
                     running = False
                     break
+
+                if message == "しばらく発言しなかったので、チャットルームから退出させました":
+                    print("プログラムを終了します。")
+                    running = False
+                    break
         except Exception as e:
             if running:  # 正常終了でない場合のみエラー表示
                 print(f"メッセージ受信中にエラーが発生しました: {e}")
