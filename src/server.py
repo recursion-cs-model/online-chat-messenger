@@ -93,8 +93,16 @@ def handle_tcp_connection(client_socket, client_address):
 
         if operation == CREATE_ROOM and state == REQUEST:
             # チャットルーム作成リクエスト
-            username = payload.decode("utf-8")
-            handle_create_room(client_socket, room_name, username, client_address)
+            try:
+                create_data = json.loads(payload.decode("utf-8"))
+                username = create_data.get("username", "")
+                password = create_data.get("password", "")
+                handle_create_room(client_socket, room_name, username, password, client_address)
+            except json.JSONDecodeError:
+                # 不正なペイロード
+                send_tcp_response(
+                    client_socket, room_name, operation, ACKNOWLEDGE, INVALID_PASSWORD
+                )
 
         elif operation == JOIN_ROOM and state == REQUEST:
             # チャットルーム参加リクエスト
@@ -115,7 +123,7 @@ def handle_tcp_connection(client_socket, client_address):
         client_socket.close()
 
 
-def handle_create_room(client_socket, room_name, username, client_address):
+def handle_create_room(client_socket, room_name, username, password, client_address):
     """チャットルーム作成処理"""
     with rooms_lock:
         if room_name in chat_rooms:
@@ -127,9 +135,10 @@ def handle_create_room(client_socket, room_name, username, client_address):
         host_token = generate_token()
 
         # チャットルーム作成
+        # パスワードが空文字またはNoneの場合は空文字として保存（パスワードなしルーム）
         chat_rooms[room_name] = {
             "host_token": host_token,
-            "password": None,  # パスワードなし
+            "password": password if password else "",
             "tokens": {host_token: client_address},
         }
 
