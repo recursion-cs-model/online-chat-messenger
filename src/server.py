@@ -25,13 +25,42 @@ ROOM_EXISTS = 1
 ROOM_NOT_FOUND = 2
 INVALID_PASSWORD = 3
 
+# クライアント管理
+CLEANUP_INTERVAL = 20
+INACTIVITY_TIMEOUT = 300
+
 # チャットルーム管理
-chat_rooms = {}  # {room_name: {host_token, password, tokens: {token: ip_address}}}
-tokens = {}  # {token: {room_name, username}}
+chat_rooms = {}
+"""
+{
+room_name: {
+    host_token: host_token,
+    password: password,
+    tokens: {token: ip_address}
+    }
+}
+"""
+tokens = {}
+"""
+{
+token: {
+    room_name:room_name,
+    username:username
+    }
+}
+"""
+client_timestamp = {}
+"""
+{token:timestamp}
+"""
 
 # ロック
 rooms_lock = threading.Lock()
 tokens_lock = threading.Lock()
+timestamp_lock = threading.Lock()
+
+# イベント
+udp_closed = threading.Event()
 
 
 def generate_token():
@@ -101,11 +130,14 @@ def handle_create_room(client_socket, room_name, username, client_address):
         chat_rooms[room_name] = {
             "host_token": host_token,
             "password": None,  # パスワードなし
-            "tokens": {host_token: client_address[0]},
+            "tokens": {host_token: client_address},
         }
 
     with tokens_lock:
         tokens[host_token] = {"room_name": room_name, "username": username}
+
+    with timestamp_lock:
+        client_timestamp[host_token] = time.time()
 
     # 成功応答
     send_tcp_response(client_socket, room_name, CREATE_ROOM, ACKNOWLEDGE, SUCCESS)
@@ -113,7 +145,13 @@ def handle_create_room(client_socket, room_name, username, client_address):
     # トークン送信
     send_tcp_complete(client_socket, room_name, CREATE_ROOM, host_token)
 
-    print(f"ルーム作成: {room_name}, ホスト: {username}, アドレス: {client_address[0]}")
+    print(f"ルーム作成: {room_name}, ホスト: {username}, アドレス: {client_address}")
+
+    # UDP port 受信
+    udp_port_bytes = client_socket.recv(2)
+    udp_port = int.from_bytes(udp_port_bytes, "big")
+    with rooms_lock:
+        chat_rooms[room_name]["tokens"][host_token] = (client_address[0], udp_port)
 
 
 def handle_join_room(client_socket, room_name, username, password, client_address):
@@ -135,10 +173,13 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
         user_token = generate_token()
 
         # トークンをルームに追加
-        room["tokens"][user_token] = client_address[0]
+        room["tokens"][user_token] = client_address
 
     with tokens_lock:
         tokens[user_token] = {"room_name": room_name, "username": username}
+
+    with timestamp_lock:
+        client_timestamp[user_token] = time.time()
 
     # 成功応答
     send_tcp_response(client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, SUCCESS)
@@ -150,7 +191,13 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
     system_message = f"{username} がチャットルームに参加しました"
     broadcast_message_to_room(room_name, system_message, None)
 
-    print(f"ルーム参加: {room_name}, ユーザー: {username}, アドレス: {client_address[0]}")
+    print(f"ルーム参加: {room_name}, ユーザー: {username}, アドレス: {client_address}")
+
+    # UDP port 受信
+    udp_port_bytes = client_socket.recv(2)
+    udp_port = int.from_bytes(udp_port_bytes, "big")
+    with rooms_lock:
+        chat_rooms[room_name]["tokens"][user_token] = (client_address[0], udp_port)
 
 
 def send_tcp_response(client_socket, room_name, operation, state, status_code):
@@ -188,7 +235,7 @@ def send_tcp_complete(client_socket, room_name, operation, token):
 def handle_udp_message(udp_socket):
     _MIN_HEADER_SIZE = 2
     """UDP メッセージ処理"""
-    while True:
+    while not udp_closed.is_set():
         try:
             data, addr = udp_socket.recvfrom(4096)
             if not data:
@@ -222,7 +269,7 @@ def process_message(room_name, token, message, addr):
         if token not in room["tokens"]:
             return
 
-        if room["tokens"][token] != addr[0]:
+        if room["tokens"][token] != addr:
             return
 
     with tokens_lock:
@@ -230,6 +277,12 @@ def process_message(room_name, token, message, addr):
             return
 
         username = tokens[token]["username"]
+
+    with timestamp_lock:
+        if token not in client_timestamp:
+            return
+
+        client_timestamp[token] = time.time()
 
     print("broard cast")
 
@@ -240,6 +293,17 @@ def process_message(room_name, token, message, addr):
     # ホスト退出チェック
     if token == room["host_token"] and message.strip().lower() == "/exit":
         close_chat_room(room_name)
+
+
+def send_message_bytes_to_client(ip, message_bytes):
+    """各自にメッセージを送信"""
+
+    # UDP送信
+    try:
+        print(ip)
+        udp_socket.sendto(message_bytes, ip)
+    except Exception as e:
+        print(f"メッセージ送信エラー: {e}")
 
 
 def broadcast_message_to_room(room_name, message, exclude_token=None):
@@ -260,11 +324,7 @@ def broadcast_message_to_room(room_name, message, exclude_token=None):
     # UDP送信
     message_bytes = message.encode("utf-8")
     for token, ip in recipients:
-        try:
-            print(ip, UDP_PORT)
-            udp_socket.sendto(message_bytes, (ip, UDP_PORT))
-        except Exception as e:
-            print(f"メッセージ送信エラー: {e}")
+        send_message_bytes_to_client(ip, message_bytes)
 
 
 def close_chat_room(room_name):
@@ -276,9 +336,10 @@ def close_chat_room(room_name):
         room = chat_rooms[room_name]
         tokens_to_remove = list(room["tokens"].keys())
 
-        # 閉じるメッセージを送信
-        broadcast_message_to_room(room_name, "チャットルームが閉じられました", None)
+    # 閉じるメッセージを送信
+    broadcast_message_to_room(room_name, "チャットルームが閉じられました", None)
 
+    with rooms_lock:
         # ルームを削除
         del chat_rooms[room_name]
 
@@ -288,13 +349,20 @@ def close_chat_room(room_name):
             if token in tokens:
                 del tokens[token]
 
+    # timestampを削除
+    with timestamp_lock:
+        for token in tokens_to_remove:
+            if token in client_timestamp:
+                del client_timestamp[token]
+
     print(f"ルーム閉鎖: {room_name}")
 
 
 def cleanup_inactive_clients():
     """非アクティブなクライアントのクリーンアップ"""
     while True:
-        time.sleep(60)  # 1分ごとにチェック
+        time.sleep(CLEANUP_INTERVAL)
+        current_time = time.time()
 
         rooms_to_check = []
         with rooms_lock:
@@ -308,9 +376,29 @@ def cleanup_inactive_clients():
                 room = chat_rooms[room_name]
                 host_token = room["host_token"]
 
-                # ホストがいなくなった場合はルームを閉じる
-                if host_token not in room["tokens"]:
-                    close_chat_room(room_name)
+            if current_time - client_timestamp.get(host_token, 0) > INACTIVITY_TIMEOUT:
+                close_chat_room(room_name)
+                continue
+
+            inactive_members = []
+            for token, ip in room["tokens"].items():
+                if token == host_token:
+                    continue
+                last_active = client_timestamp.get(token, 0)
+                if current_time - last_active > INACTIVITY_TIMEOUT:
+                    inactive_members.append((token, ip))
+
+            for token, ip in inactive_members:
+                send_message_bytes_to_client(
+                    ip,
+                    "しばらく発言しなかったので、チャットルームから退出させました".encode("utf-8"),
+                )
+                with rooms_lock:
+                    del room["tokens"][token]
+                with tokens_lock:
+                    del tokens[token]
+                with timestamp_lock:
+                    del client_timestamp[token]
 
 
 def start_server():
@@ -324,6 +412,7 @@ def start_server():
     # UDP ソケット設定
     global udp_socket
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp_socket.bind((UDP_HOST, UDP_PORT))
 
     # UDP処理スレッド起動
     udp_thread = threading.Thread(target=handle_udp_message, args=(udp_socket,), daemon=True)
@@ -348,6 +437,7 @@ def start_server():
         print("サーバー停止中...")
     finally:
         tcp_socket.close()
+        udp_closed.set()
         udp_socket.close()
         print("サーバー停止完了")
 
