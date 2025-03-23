@@ -47,7 +47,7 @@ deactivate
 ```json
 {
   "username": "ユーザー名",
-  "password": "ルームパスワード"  // 空文字列の場合はパスワードなしのルーム
+  "password": "ルームパスワード"
 }
 ```
 | フィールド | 型 | 必須 | 説明 |
@@ -59,7 +59,7 @@ deactivate
 ```json
 {
   "username": "ユーザー名",
-  "password": "ルームパスワード"  // 空文字列の場合はパスワードなしのルーム
+  "password": "ルームパスワード"
 }
 ```
 | フィールド | 型 | 必須 | 説明 |
@@ -68,7 +68,7 @@ deactivate
 | password | 文字列 | CONDITIONAL | ルームにパスワードが設定されている場合に必須 |
 
 ### サーバーレスポンスのペイロード（ACKNOWLEDGE）
-```json
+```
   <status_code> (1バイト)
 ```
 | ステータスコード | 値 | 説明 |
@@ -79,7 +79,7 @@ deactivate
 | INVALID_PASSWORD | 3 | パスワードが無効または不一致 |
 
 ### サーバーレスポンスのペイロード（COMPLETE）
-```json
+```
   <token> (UTF-8エンコードされた文字列)
 ```
 | フィールド | 説明 |
