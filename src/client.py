@@ -81,10 +81,8 @@ def create_room(server_host, tcp_port, room_name, username, password=None):
         response_payload_size = int.from_bytes(response_header[3:32], byteorder="big")
 
         response_body = tcp_socket.recv(response_room_name_size + response_payload_size)
-        if (
-            not response_body
-            or len(response_body) < response_room_name_size + response_payload_size
-        ):
+        response_size = response_room_name_size + response_payload_size
+        if not response_body or len(response_body) < response_size:
             print("サーバーからの応答が不完全です")
             return False
 
@@ -110,10 +108,8 @@ def create_room(server_host, tcp_port, room_name, username, password=None):
         complete_payload_size = int.from_bytes(complete_header[3:32], byteorder="big")
 
         complete_body = tcp_socket.recv(complete_room_name_size + complete_payload_size)
-        if (
-            not complete_body
-            or len(complete_body) < complete_room_name_size + complete_payload_size
-        ):
+        complete_size = complete_room_name_size + complete_payload_size
+        if not complete_body or len(complete_body) < complete_size:
             print("サーバーからの完了応答が不完全です")
             return False
 
@@ -178,10 +174,8 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         response_payload_size = int.from_bytes(response_header[3:32], byteorder="big")
 
         response_body = tcp_socket.recv(response_room_name_size + response_payload_size)
-        if (
-            not response_body
-            or len(response_body) < response_room_name_size + response_payload_size
-        ):
+        response_size = response_room_name_size + response_payload_size
+        if not response_body or len(response_body) < response_size:
             print("サーバーからの応答が不完全です")
             return False
 
@@ -209,10 +203,8 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         complete_payload_size = int.from_bytes(complete_header[3:32], byteorder="big")
 
         complete_body = tcp_socket.recv(complete_room_name_size + complete_payload_size)
-        if (
-            not complete_body
-            or len(complete_body) < complete_room_name_size + complete_payload_size
-        ):
+        complete_size = complete_room_name_size + complete_payload_size
+        if not complete_body or len(complete_body) < complete_size:
             print("サーバーからの完了応答が不完全です")
             return False
 
