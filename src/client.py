@@ -307,7 +307,7 @@ def start_client():
         case RoomOperationCode.CREATE_ROOM:
             room_name = input("作成するルーム名: ")
             username = input("あなたのユーザー名: ")
-            use_password = input("パスワードを設定しますか？ (y/n): ").lower() == "y"
+            use_password = input("パスワードを設定しますか？ (y/N): ").lower() == "y"
             password = getpass.getpass("パスワード: ") if use_password else None
 
             if create_room(args.host, args.tcp_port, room_name, username, password):
@@ -335,7 +335,7 @@ def start_client():
         case RoomOperationCode.JOIN_ROOM:
             room_name = input("参加するルーム名: ")
             username = input("あなたのユーザー名: ")
-            use_password = input("パスワードが必要ですか？ (y/n): ").lower() == "y"
+            use_password = input("パスワードが必要ですか？ (y/N): ").lower() == "y"
             password = getpass.getpass("パスワード: ") if use_password else None
 
             if join_room(args.host, args.tcp_port, room_name, username, password):
