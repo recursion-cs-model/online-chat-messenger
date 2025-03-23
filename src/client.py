@@ -42,7 +42,7 @@ def send_udp_port(tcp_socket, server_host):
     tcp_socket.send(client_udp_port_bytes)
 
 
-def create_room(server_host, tcp_port, room_name, username):
+def create_room(server_host, tcp_port, room_name, username, password=None):
     """新しいチャットルームを作成する"""
     global client_token, client_room, client_username
 
@@ -56,8 +56,10 @@ def create_room(server_host, tcp_port, room_name, username):
         room_name_bytes = room_name.encode("utf-8")
         room_name_size = len(room_name_bytes)
 
-        username_bytes = username.encode("utf-8")
-        payload_size = len(username_bytes)
+        # ペイロードとしてJSONを使用
+        payload_data = {"username": username, "password": password if password else ""}
+        payload_bytes = json.dumps(payload_data).encode("utf-8")
+        payload_size = len(payload_bytes)
 
         # ヘッダー作成
         header = bytes([room_name_size, CREATE_ROOM, REQUEST]) + payload_size.to_bytes(
@@ -65,7 +67,7 @@ def create_room(server_host, tcp_port, room_name, username):
         )
 
         # リクエスト送信
-        tcp_socket.sendall(header + room_name_bytes + username_bytes)
+        tcp_socket.sendall(header + room_name_bytes + payload_bytes)
 
         # 応答受信
         response_header = tcp_socket.recv(32)
@@ -312,8 +314,10 @@ def start_client():
         case RoomOperationCode.CREATE_ROOM:
             room_name = input("作成するルーム名: ")
             username = input("あなたのユーザー名: ")
+            use_password = input("パスワードを設定しますか？ (y/n): ").lower() == "y"
+            password = input("パスワード: ") if use_password else None
 
-            if create_room(args.host, args.tcp_port, room_name, username):
+            if create_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
                 receive_thread = threading.Thread(target=receive_messages, daemon=True)
                 receive_thread.start()
