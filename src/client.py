@@ -2,6 +2,7 @@ import socket
 import threading
 import json
 import argparse
+import getpass
 
 from models.room_operation_code import RoomOperationCode
 
@@ -42,7 +43,7 @@ def send_udp_port(tcp_socket, server_host):
     tcp_socket.send(client_udp_port_bytes)
 
 
-def create_room(server_host, tcp_port, room_name, username):
+def create_room(server_host, tcp_port, room_name, username, password=None):
     """新しいチャットルームを作成する"""
     global client_token, client_room, client_username
 
@@ -56,8 +57,10 @@ def create_room(server_host, tcp_port, room_name, username):
         room_name_bytes = room_name.encode("utf-8")
         room_name_size = len(room_name_bytes)
 
-        username_bytes = username.encode("utf-8")
-        payload_size = len(username_bytes)
+        # ペイロードとしてJSONを使用
+        payload_data = {"username": username, "password": password if password else ""}
+        payload_bytes = json.dumps(payload_data).encode("utf-8")
+        payload_size = len(payload_bytes)
 
         # ヘッダー作成
         header = bytes([room_name_size, CREATE_ROOM, REQUEST]) + payload_size.to_bytes(
@@ -65,7 +68,7 @@ def create_room(server_host, tcp_port, room_name, username):
         )
 
         # リクエスト送信
-        tcp_socket.sendall(header + room_name_bytes + username_bytes)
+        tcp_socket.sendall(header + room_name_bytes + payload_bytes)
 
         # 応答受信
         response_header = tcp_socket.recv(32)
@@ -79,10 +82,8 @@ def create_room(server_host, tcp_port, room_name, username):
         response_payload_size = int.from_bytes(response_header[3:32], byteorder="big")
 
         response_body = tcp_socket.recv(response_room_name_size + response_payload_size)
-        if (
-            not response_body
-            or len(response_body) < response_room_name_size + response_payload_size
-        ):
+        response_size = response_room_name_size + response_payload_size
+        if not response_body or len(response_body) < response_size:
             print("サーバーからの応答が不完全です")
             return False
 
@@ -108,10 +109,8 @@ def create_room(server_host, tcp_port, room_name, username):
         complete_payload_size = int.from_bytes(complete_header[3:32], byteorder="big")
 
         complete_body = tcp_socket.recv(complete_room_name_size + complete_payload_size)
-        if (
-            not complete_body
-            or len(complete_body) < complete_room_name_size + complete_payload_size
-        ):
+        complete_size = complete_room_name_size + complete_payload_size
+        if not complete_body or len(complete_body) < complete_size:
             print("サーバーからの完了応答が不完全です")
             return False
 
@@ -176,10 +175,8 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         response_payload_size = int.from_bytes(response_header[3:32], byteorder="big")
 
         response_body = tcp_socket.recv(response_room_name_size + response_payload_size)
-        if (
-            not response_body
-            or len(response_body) < response_room_name_size + response_payload_size
-        ):
+        response_size = response_room_name_size + response_payload_size
+        if not response_body or len(response_body) < response_size:
             print("サーバーからの応答が不完全です")
             return False
 
@@ -207,10 +204,8 @@ def join_room(server_host, tcp_port, room_name, username, password=None):
         complete_payload_size = int.from_bytes(complete_header[3:32], byteorder="big")
 
         complete_body = tcp_socket.recv(complete_room_name_size + complete_payload_size)
-        if (
-            not complete_body
-            or len(complete_body) < complete_room_name_size + complete_payload_size
-        ):
+        complete_size = complete_room_name_size + complete_payload_size
+        if not complete_body or len(complete_body) < complete_size:
             print("サーバーからの完了応答が不完全です")
             return False
 
@@ -312,8 +307,10 @@ def start_client():
         case RoomOperationCode.CREATE_ROOM:
             room_name = input("作成するルーム名: ")
             username = input("あなたのユーザー名: ")
+            use_password = input("パスワードを設定しますか？ (y/N): ").lower() == "y"
+            password = getpass.getpass("パスワード: ") if use_password else None
 
-            if create_room(args.host, args.tcp_port, room_name, username):
+            if create_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
                 receive_thread = threading.Thread(target=receive_messages, daemon=True)
                 receive_thread.start()
@@ -338,8 +335,8 @@ def start_client():
         case RoomOperationCode.JOIN_ROOM:
             room_name = input("参加するルーム名: ")
             username = input("あなたのユーザー名: ")
-            use_password = input("パスワードが必要ですか？ (y/n): ").lower() == "y"
-            password = input("パスワード: ") if use_password else None
+            use_password = input("パスワードが必要ですか？ (y/N): ").lower() == "y"
+            password = getpass.getpass("パスワード: ") if use_password else None
 
             if join_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
