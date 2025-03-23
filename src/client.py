@@ -2,6 +2,7 @@ import socket
 import threading
 import json
 import argparse
+import getpass
 
 from models.room_operation_code import RoomOperationCode
 
@@ -307,7 +308,7 @@ def start_client():
             room_name = input("作成するルーム名: ")
             username = input("あなたのユーザー名: ")
             use_password = input("パスワードを設定しますか？ (y/n): ").lower() == "y"
-            password = input("パスワード: ") if use_password else None
+            password = getpass.getpass("パスワード: ") if use_password else None
 
             if create_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
@@ -335,7 +336,7 @@ def start_client():
             room_name = input("参加するルーム名: ")
             username = input("あなたのユーザー名: ")
             use_password = input("パスワードが必要ですか？ (y/n): ").lower() == "y"
-            password = input("パスワード: ") if use_password else None
+            password = getpass.getpass("パスワード: ") if use_password else None
 
             if join_room(args.host, args.tcp_port, room_name, username, password):
                 # メッセージ受信スレッド起動
