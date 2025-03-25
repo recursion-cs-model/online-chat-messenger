@@ -1,0 +1,11 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 25.1.0  # 最新版に合わせて更新pre-commit install
+    hooks:
+      - id: black
+        language_version: python3
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.2  # 最新版に合わせて更新
+    hooks:
+      - id: flake8
