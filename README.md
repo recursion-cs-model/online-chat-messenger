@@ -1,17 +1,37 @@
-# venv
-作成
+# Quick Start
+## 仮想環境の作成
 ```bash
 python3 -m venv venv
-```
-
-起動
-```bash
 source venv/bin/activate # MacOSの場合
+source venv/Scripts/activate # Windowsの場合
 ```
 
+## パッケージのインストール
+```bash
+pip install -r requirements.txt
+```
+
+## サーバーの起動
+```bash
+python3 src/server.py
+```
+
+## クライアントの起動
+```bash
+python3 src/client.py
+```
+
+## 仮想環境の停止
 停止
 ```bash
 deactivate
+```
+
+# 開発者向け
+
+## コミット時にフォーマッタを実行
+```bash
+pre-commit install
 ```
 
 # データ構造
