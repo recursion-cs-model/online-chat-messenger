@@ -126,7 +126,9 @@ def create_room(server_host, tcp_port, room_name, username, password=None):
         send_udp_port(tcp_socket, server_host)
 
         print(f"チャットルーム '{room_name}' を作成しました！")
-        print("あなたはホストとして参加しています。退出するには '/exit' と入力してください。")
+        print(
+            "あなたはホストとして参加しています。退出するには '/exit' と入力してください。"
+        )
         return True
 
     except Exception as e:
@@ -249,7 +251,10 @@ def receive_messages():
                     running = False
                     break
 
-                if message == "しばらく発言しなかったので、チャットルームから退出させました":
+                if (
+                    message
+                    == "しばらく発言しなかったので、チャットルームから退出させました"
+                ):
                     print("プログラムを終了します。")
                     running = False
                     break
@@ -278,7 +283,12 @@ def send_message(server_host, udp_port, message):
         message_bytes = message.encode("utf-8")
 
         # パケット作成
-        packet = bytes([room_name_size, token_size]) + room_name_bytes + token_bytes + message_bytes
+        packet = (
+            bytes([room_name_size, token_size])
+            + room_name_bytes
+            + token_bytes
+            + message_bytes
+        )
 
         # 送信
         udp_socket.sendto(packet, (server_host, udp_port))
@@ -294,8 +304,12 @@ def start_client():
 
     parser = argparse.ArgumentParser(description="チャットメッセンジャークライアント")
     parser.add_argument("--host", default=DEFAULT_SERVER_HOST, help="サーバーホスト")
-    parser.add_argument("--tcp-port", type=int, default=DEFAULT_TCP_PORT, help="TCPポート")
-    parser.add_argument("--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDPポート")
+    parser.add_argument(
+        "--tcp-port", type=int, default=DEFAULT_TCP_PORT, help="TCPポート"
+    )
+    parser.add_argument(
+        "--udp-port", type=int, default=DEFAULT_UDP_PORT, help="UDPポート"
+    )
     args = parser.parse_args()
 
     print("=== チャットメッセンジャークライアント ===")

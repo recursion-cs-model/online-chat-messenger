@@ -97,7 +97,9 @@ def handle_tcp_connection(client_socket, client_address):
                 create_data = json.loads(payload.decode("utf-8"))
                 username = create_data.get("username", "")
                 password = create_data.get("password", "")
-                handle_create_room(client_socket, room_name, username, password, client_address)
+                handle_create_room(
+                    client_socket, room_name, username, password, client_address
+                )
             except json.JSONDecodeError:
                 # 不正なペイロード
                 send_tcp_response(
@@ -110,7 +112,9 @@ def handle_tcp_connection(client_socket, client_address):
                 join_data = json.loads(payload.decode("utf-8"))
                 username = join_data.get("username", "")
                 password = join_data.get("password", "")
-                handle_join_room(client_socket, room_name, username, password, client_address)
+                handle_join_room(
+                    client_socket, room_name, username, password, client_address
+                )
             except json.JSONDecodeError:
                 # 不正なペイロード
                 send_tcp_response(
@@ -128,7 +132,9 @@ def handle_create_room(client_socket, room_name, username, password, client_addr
     with rooms_lock:
         if room_name in chat_rooms:
             # 既に同名のルームが存在する
-            send_tcp_response(client_socket, room_name, CREATE_ROOM, ACKNOWLEDGE, ROOM_EXISTS)
+            send_tcp_response(
+                client_socket, room_name, CREATE_ROOM, ACKNOWLEDGE, ROOM_EXISTS
+            )
             return
 
         # 新しいトークン生成
@@ -168,14 +174,18 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
     with rooms_lock:
         if room_name not in chat_rooms:
             # ルームが存在しない
-            send_tcp_response(client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, ROOM_NOT_FOUND)
+            send_tcp_response(
+                client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, ROOM_NOT_FOUND
+            )
             return
 
         room = chat_rooms[room_name]
 
         # パスワード確認
         if room["password"] and room["password"] != password:
-            send_tcp_response(client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, INVALID_PASSWORD)
+            send_tcp_response(
+                client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, INVALID_PASSWORD
+            )
             return
 
         # 新しいトークン生成
@@ -218,7 +228,9 @@ def send_tcp_response(client_socket, room_name, operation, state, status_code):
     payload_size = len(status_bytes)
 
     # ヘッダー作成
-    header = bytes([room_name_size, operation, state]) + payload_size.to_bytes(29, byteorder="big")
+    header = bytes([room_name_size, operation, state]) + payload_size.to_bytes(
+        29, byteorder="big"
+    )
 
     # 送信
     client_socket.sendall(header + room_name_bytes + status_bytes)
@@ -258,7 +270,9 @@ def handle_udp_message(udp_socket):
             token_size = data[1]
 
             room_name = data[2 : 2 + room_name_size].decode("utf-8")
-            token = data[2 + room_name_size : 2 + room_name_size + token_size].decode("utf-8")
+            token = data[2 + room_name_size : 2 + room_name_size + token_size].decode(
+                "utf-8"
+            )
             message = data[2 + room_name_size + token_size :].decode("utf-8")
 
             process_message(room_name, token, message, addr)
@@ -400,7 +414,9 @@ def cleanup_inactive_clients():
             for token, ip in inactive_members:
                 send_message_bytes_to_client(
                     ip,
-                    "しばらく発言しなかったので、チャットルームから退出させました".encode("utf-8"),
+                    "しばらく発言しなかったので、チャットルームから退出させました".encode(
+                        "utf-8"
+                    ),
                 )
                 with rooms_lock:
                     del room["tokens"][token]
@@ -414,7 +430,9 @@ def start_server():
     """サーバー起動"""
     # TCP ソケット設定
     tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 即座のアドレス再利用許可
+    tcp_socket.setsockopt(
+        socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
+    )  # 即座のアドレス再利用許可
     tcp_socket.bind((TCP_HOST, TCP_PORT))
     tcp_socket.listen(5)  # 同時接続数
 
@@ -424,7 +442,9 @@ def start_server():
     udp_socket.bind((UDP_HOST, UDP_PORT))
 
     # UDP処理スレッド起動
-    udp_thread = threading.Thread(target=handle_udp_message, args=(udp_socket,), daemon=True)
+    udp_thread = threading.Thread(
+        target=handle_udp_message, args=(udp_socket,), daemon=True
+    )
     udp_thread.start()
 
     # クリーンアップスレッド起動
@@ -438,7 +458,9 @@ def start_server():
             # TCP接続待機
             client_socket, client_address = tcp_socket.accept()
             client_thread = threading.Thread(
-                target=handle_tcp_connection, args=(client_socket, client_address), daemon=True
+                target=handle_tcp_connection,
+                args=(client_socket, client_address),
+                daemon=True,
             )
             client_thread.start()
 
