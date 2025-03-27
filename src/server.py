@@ -3,6 +3,7 @@ import threading
 import uuid
 import time
 import json
+import bcrypt
 
 # サーバー設定
 TCP_HOST = "127.0.0.1"
@@ -140,11 +141,15 @@ def handle_create_room(client_socket, room_name, username, password, client_addr
         # 新しいトークン生成
         host_token = generate_token()
 
+        # パスワードがある場合はハッシュ化
+        hashed_password = None
+        if password:
+            hashed_password = hash_password(password)
+
         # チャットルーム作成
-        # パスワードが空文字またはNoneの場合は空文字として保存（パスワードなしルーム）
         chat_rooms[room_name] = {
             "host_token": host_token,
-            "password": password if password else "",
+            "password": hashed_password,  # ハッシュ化したパスワードを文字列として保存
             "tokens": {host_token: client_address},
         }
 
@@ -181,12 +186,14 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
 
         room = chat_rooms[room_name]
 
-        # パスワード確認
-        if room["password"] and room["password"] != password:
-            send_tcp_response(
-                client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, INVALID_PASSWORD
-            )
-            return
+        # パスワードの検証
+        room_password = room["password"]
+        if room_password:
+            if not password or not verify_password(password, room_password):
+                send_tcp_response(
+                    client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, INVALID_PASSWORD
+                )
+                return
 
         # 新しいトークン生成
         user_token = generate_token()
@@ -471,6 +478,20 @@ def start_server():
         udp_closed.set()
         udp_socket.close()
         print("サーバー停止完了")
+
+
+def hash_password(password):
+    """パスワードをハッシュ化する"""
+    password_bytes = password.encode("utf-8")
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt(12)).decode("utf-8")
+
+
+def verify_password(plain_password, hashed_password):
+    """ハッシュ化されたパスワードを検証する"""
+    password_bytes = plain_password.encode('utf-8')
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode("utf-8")
+    return bcrypt.checkpw(password_bytes, hashed_password)
 
 
 if __name__ == "__main__":
