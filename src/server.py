@@ -141,7 +141,7 @@ def handle_create_room(client_socket, room_name, username, client_address, passw
         # 新しいトークン生成
         host_token = generate_token()
 
-        # パスワードがある場合はハッシュ化
+        # パスワード設定が無い場合は空文字をハッシュ化
         hashed_password = hash_password(password)
 
         # チャットルーム作成
