@@ -3,6 +3,7 @@ import threading
 import uuid
 import time
 import json
+import bcrypt
 
 # サーバー設定
 TCP_HOST = "127.0.0.1"
@@ -98,7 +99,7 @@ def handle_tcp_connection(client_socket, client_address):
                 username = create_data.get("username", "")
                 password = create_data.get("password", "")
                 handle_create_room(
-                    client_socket, room_name, username, password, client_address
+                    client_socket, room_name, username, client_address, password
                 )
             except json.JSONDecodeError:
                 # 不正なペイロード
@@ -113,7 +114,7 @@ def handle_tcp_connection(client_socket, client_address):
                 username = join_data.get("username", "")
                 password = join_data.get("password", "")
                 handle_join_room(
-                    client_socket, room_name, username, password, client_address
+                    client_socket, room_name, username, client_address, password
                 )
             except json.JSONDecodeError:
                 # 不正なペイロード
@@ -127,7 +128,7 @@ def handle_tcp_connection(client_socket, client_address):
         client_socket.close()
 
 
-def handle_create_room(client_socket, room_name, username, password, client_address):
+def handle_create_room(client_socket, room_name, username, client_address, password=""):
     """チャットルーム作成処理"""
     with rooms_lock:
         if room_name in chat_rooms:
@@ -140,11 +141,13 @@ def handle_create_room(client_socket, room_name, username, password, client_addr
         # 新しいトークン生成
         host_token = generate_token()
 
+        # パスワード設定が無い場合は空文字をハッシュ化
+        hashed_password = hash_password(password)
+
         # チャットルーム作成
-        # パスワードが空文字またはNoneの場合は空文字として保存（パスワードなしルーム）
         chat_rooms[room_name] = {
             "host_token": host_token,
-            "password": password if password else "",
+            "password": hashed_password,  # ハッシュ化したパスワードを文字列として保存
             "tokens": {host_token: client_address},
         }
 
@@ -169,7 +172,7 @@ def handle_create_room(client_socket, room_name, username, password, client_addr
         chat_rooms[room_name]["tokens"][host_token] = (client_address[0], udp_port)
 
 
-def handle_join_room(client_socket, room_name, username, password, client_address):
+def handle_join_room(client_socket, room_name, username, client_address, password=""):
     """チャットルーム参加処理"""
     with rooms_lock:
         if room_name not in chat_rooms:
@@ -181,8 +184,9 @@ def handle_join_room(client_socket, room_name, username, password, client_addres
 
         room = chat_rooms[room_name]
 
-        # パスワード確認
-        if room["password"] and room["password"] != password:
+        # パスワードの検証
+        room_password = room["password"]
+        if not verify_password(password, room_password):
             send_tcp_response(
                 client_socket, room_name, JOIN_ROOM, ACKNOWLEDGE, INVALID_PASSWORD
             )
@@ -471,6 +475,22 @@ def start_server():
         udp_closed.set()
         udp_socket.close()
         print("サーバー停止完了")
+
+
+def hash_password(password):
+    """パスワードをハッシュ化する"""
+    password_bytes = password.encode("utf-8")
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(12)).decode("utf-8")
+    return hashed
+
+
+def verify_password(plain_password, hashed_password):
+    """ハッシュ化されたパスワードを検証する"""
+    password_bytes = plain_password.encode('utf-8')
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode("utf-8")
+    result = bcrypt.checkpw(password_bytes, hashed_password)
+    return result
 
 
 if __name__ == "__main__":
